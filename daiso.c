@@ -1,17 +1,24 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 
 const uint8_t SIDE_LENGTH = 10;
 const uint8_t PIECE_SIZE = 4;
 const char* RESET = "\033[0m;";
 const uint8_t NUM_PIECES = 12;
 const uint16_t MAX_SOLUTIONS = 1000;
+const uint16_t SOLUTION_LENGTH = 55;
 
 typedef struct board {
     uint8_t sidelength;
     char state[SIDE_LENGTH][SIDE_LENGTH];
 } board;
+
+typedef struct solution_set {
+    uint16_t count;
+    uint32_t solutions[MAX_SOLUTIONS];
+} solution_set;
 
 const char PIECE_IDS[12] = {'a', 'b', 'c', 'd', 'e', 'f',
                             'g', 'h', 'i', 'j', 'k', 'l'};
@@ -89,15 +96,20 @@ void printboard(board *b);
 void place(int piece[4][4], int pindex, board *b, int row, int col);
 void unplace(int piece[4][4], board *b, int row, int col);
 int isSafe(int piece[4][4], board *b, int row, int col);
-void explore(board *b, uint8_t index);
+void explore(board *b, uint8_t index, solution_set *s);
 int getindexfromid(char c);
 void rotatePiece(int mat[4][4], int N);
 char* stringifyboard(board *b);
+int solutionexists(solution_set *s, uint32_t sol);
+uint32_t hashboard(board *b);
 
 int main() {
     // Initialize the board state. 0 represents a free
     // space, 1 represents a cell that is off limits
+
     board *b = malloc(sizeof(board));
+    solution_set *solutions = malloc(sizeof(solution_set));
+    solutions->count = 0;
     b->sidelength = SIDE_LENGTH;
     for (int i = 0; i < SIDE_LENGTH; i++) {
         for (int j = 0; j < SIDE_LENGTH; j++) {
@@ -110,15 +122,20 @@ int main() {
         }
     }
 
-    explore(b, 0);
+    explore(b, 0, solutions);
 }
 
-void explore(board *b, uint8_t index) {
+void explore(board *b, uint8_t index, solution_set *s) {
     if (index == NUM_PIECES) {
-        printf("%s", "Nice, found a solution!\n");
-        printboard(b);
-        char* str = stringifyboard(b);
-        printf("%s\n", str);
+        uint32_t str = hashboard(b);
+
+        // This is a new solution
+        if (!solutionexists(s, str)) {
+            s->solutions[s->count] = hashboard(b);
+            s->count++;
+            printf("Nice, found a solution! Total solutions: %d\n", s->count);
+            printboard(b);
+        }
         return;
     }
     for (int k = 0; k < 4; k++) {
@@ -126,7 +143,7 @@ void explore(board *b, uint8_t index) {
             for (int j = 0; j < SIDE_LENGTH - i; j++) {
                 if(isSafe(PIECES[index], b, i, j)) {
                     place(PIECES[index], index, b, i, j);
-                    explore(b, index + 1);
+                    explore(b, index + 1, s);
                     unplace(PIECES[index], b, i, j);
                 }
             }
@@ -208,6 +225,28 @@ char* stringifyboard(board *b) {
         for (int j = 0; j < SIDE_LENGTH; j++) {
             res[index] = b->state[i][j];
             index++;
+        }
+    }
+    return res;
+
+}
+
+int solutionexists(solution_set *s, uint32_t sol) {
+    for(int i = 0; i < s->count; i++) {
+        if (sol == s->solutions[i]) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+uint32_t hashboard(board *b) {
+    uint32_t res = 1;
+    uint8_t pos = 10;
+    for (int i = 0; i < SIDE_LENGTH; i++) {
+        for (int j = 0; j < SIDE_LENGTH; j++) {
+            pos++;
+            res += (b->state[i][j] * pos  * 37);
         }
     }
     return res;
