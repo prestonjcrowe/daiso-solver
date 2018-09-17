@@ -1,45 +1,29 @@
 /* TODO:
     type def BOARD_HASH
-    header file
-    int -> uintXX_t
 */
-
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
-const uint8_t SIDE_LENGTH = 10;
-const uint8_t PIECE_SIZE = 4;
-const uint8_t NUM_PIECES = 12;
-const uint16_t MAX_SOLUTIONS = 1000;
-
-typedef struct board {
-    uint8_t sidelength;
-    char state[SIDE_LENGTH][SIDE_LENGTH];
-} board;
-
-typedef struct solution_set {
-    uint16_t count;
-    uint32_t solutions[MAX_SOLUTIONS];
-} solution_set;
+#include "daiso.h"
 
 const char PIECE_IDS[12] = {
-    'a', 'b', 'c', 'd', 'e', 'f',
-    'g', 'h', 'i', 'j', 'k', 'l'
+    'A', 'B', 'C', 'D', 'E', 'F',
+    'G', 'H', 'I', 'J', 'K', 'L'
 };
 
 const char COLORS[12][10] = {
-    "\033[1;31m", "\033[1;31m",
-    "\033[0;32m", "\033[1;32m",
-    "\033[0;33m", "\033[0;36m",
-    "\033[0;34m", "\033[1;34m",
-    "\033[0;35m", "\033[1;35m",
-    "\033[2;35m", "\033[2;33m"
+    "\033[0;31m", "\033[0;32m",
+    "\033[0;33m", "\033[0;34m",
+    "\033[0;35m", "\033[0;36m",
+    "\033[0;37m", "\033[1;31m",
+    "\033[1;32m", "\033[1:33m",
+    "\033[1;34m", "\033[1;35m"
 };
 
-int PIECES[12][4][4] = {
+uint8_t PIECES[12][4][4] = {
     {{1,0,0,0},
      {1,0,0,0},
      {1,0,0,0},
@@ -101,15 +85,7 @@ int PIECES[12][4][4] = {
      {0,0,0,0}}
 };
 
-void printboard(board *b);
-void explore(board *b, uint8_t index, solution_set *s);
-void place(int piece[4][4], int pindex, board *b, int row, int col);
-void unplace(int piece[4][4], board *b, int row, int col);
-void rotatePiece(int mat[4][4], int N);
-int isSafe(int piece[4][4], board *b, int row, int col);
-int getindexfromid(char c);
-int solutionexists(solution_set *s, uint32_t sol);
-uint32_t hashboard(board *b);
+
 
 int main() {
     board *b = malloc(sizeof(board));
@@ -153,12 +129,12 @@ void explore(board *b, uint8_t index, solution_set *s) {
                     place(PIECES[index], index, b, i, j);
                     
                     //Uncomment to watch every move
-                    //printboard(b);
-                    //struct timespec *req = malloc(sizeof(struct timespec));
-                    //struct timespec *rem = malloc(sizeof(struct timespec));
-                    //req->tv_sec = 0;
-                    //req->tv_nsec = 550000000;
-                    //nanosleep(req, rem);
+                    printboard(b);
+                    struct timespec *req = malloc(sizeof(struct timespec));
+                    struct timespec *rem = malloc(sizeof(struct timespec));
+                    req->tv_sec = 0;
+                    req->tv_nsec = 550000000;
+                    nanosleep(req, rem);
                     explore(b, index + 1, s);
                     unplace(PIECES[index], b, i, j);
                 }
@@ -168,9 +144,9 @@ void explore(board *b, uint8_t index, solution_set *s) {
     }
 }
 
-// Places the given piece on the given board, where row and represent the 
-// upper left corner of the piece
-void place(int piece[4][4], int pindex, board *b, int row, int col) {
+// Places the given piece on the given board, where row and col represent
+// the upper left corner of the piece
+void place(uint8_t piece[4][4], uint8_t pindex, board *b, uint8_t row, uint8_t col) {
     for (int i = 0; i < PIECE_SIZE; i++) {
         for (int j = 0; j < PIECE_SIZE; j++) {
             if (piece[i][j] != 0) {
@@ -182,7 +158,7 @@ void place(int piece[4][4], int pindex, board *b, int row, int col) {
 
 // Returns 1 if the piece can be placed at the given (row, col) without
 // touching another piece or illegal cell
-int isSafe(int piece[4][4], board *b, int row, int col) {
+int isSafe(uint8_t piece[4][4], board *b, uint8_t row, uint8_t col) {
     for (int i = 0; i < PIECE_SIZE; i++) {
         for (int j = 0; j < PIECE_SIZE; j++) {
             if (piece[i][j] != 0)  {
@@ -199,7 +175,7 @@ int isSafe(int piece[4][4], board *b, int row, int col) {
 
 // Unlaces the given piece on the given board, where row and represent the 
 // upper left corner of the piece
-void unplace(int piece[4][4], board *b, int row, int col) {
+void unplace(uint8_t piece[4][4], board *b, uint8_t row, uint8_t col) {
     for (int i = 0; i < PIECE_SIZE; i++) {
         for (int j = 0; j < PIECE_SIZE; j++) {
             if (piece[i][j] != 0) {
@@ -222,7 +198,7 @@ void printboard(board *b) {
             }
             else {
                 char id = b->state[i][j];
-                int index = getindexfromid(id);
+                uint8_t index = getindexfromid(id);
                 printf("%s", COLORS[index]);
                 printf("%c ", b->state[i][j]);
                 printf("\033[0m");
@@ -269,7 +245,7 @@ uint32_t hashboard(board *b) {
 
 // An Inplace function to rotate a N x N matrix
 // by 90 degrees in anti-clockwise direction
-void rotatePiece(int mat[4][4], int N)
+void rotatePiece(uint8_t mat[4][4], uint8_t N)
 {
     // Consider all squares one by one
     for (int x = 0; x < N / 2; x++)
@@ -279,7 +255,7 @@ void rotatePiece(int mat[4][4], int N)
         for (int y = x; y < N-x-1; y++)
         {
             // store current cell in temp variable
-            int temp = mat[x][y];
+            uint8_t temp = mat[x][y];
  
             // move values from right to top
             mat[x][y] = mat[y][N-1-x];
