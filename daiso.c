@@ -1,6 +1,3 @@
-/* TODO:
-    type def BOARD_HASH
-*/
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -8,6 +5,8 @@
 #include <time.h>
 
 #include "daiso.h"
+
+#define PRINT_PROGRESS 1
 
 const char PIECE_IDS[12] = {
     'A', 'B', 'C', 'D', 'E', 'F',
@@ -24,28 +23,8 @@ const char COLORS[12][10] = {
 };
 
 uint8_t PIECES[12][4][4] = {
-    {{1,0,0,0},
-     {1,0,0,0},
-     {1,0,0,0},
-     {1,0,0,0}},
-
     {{1,1,0,0},
      {1,1,0,0},
-     {1,0,0,0},
-     {0,0,0,0}},
-
-    {{0,1,0,0},
-     {0,1,0,0},
-     {1,1,0,0},
-     {1,0,0,0}},
-
-    {{1,0,0,0},
-     {1,0,0,0},
-     {1,1,0,0},
-     {1,0,0,0}},
-
-    {{1,1,1,0},
-     {1,0,0,0},
      {1,0,0,0},
      {0,0,0,0}},
 
@@ -79,15 +58,36 @@ uint8_t PIECES[12][4][4] = {
      {0,0,0,0},
      {0,0,0,0}},
 
+    {{0,1,0,0},
+     {0,1,0,0},
+     {1,1,0,0},
+     {1,0,0,0}},
+
+    {{1,0,0,0},
+     {1,0,0,0},
+     {1,1,0,0},
+     {1,0,0,0}},
+
+    {{1,1,1,0},
+     {1,0,0,0},
+     {1,0,0,0},
+     {0,0,0,0}},
+
     {{1,1,0,0},
      {1,0,0,0},
      {1,1,0,0},
-     {0,0,0,0}}
+     {0,0,0,0}},
+
+    {{1,0,0,0},
+     {1,0,0,0},
+     {1,0,0,0},
+     {1,0,0,0}}
+
 };
 
-
-
 int main() {
+
+    clock_t start = clock();
     board *b = malloc(sizeof(board));
     solution_set *solutions = malloc(sizeof(solution_set));
     solutions->count = 0;
@@ -105,37 +105,48 @@ int main() {
     }
 
     explore(b, 0, solutions);
+    free(b);
+    free(solutions);
+    clock_t stop = clock();
+    double elapsed = (double)(stop - start) * 1000.0 / CLOCKS_PER_SEC;
+    printf("Time elapsed in s: %f\n", elapsed / 1000);
 }
 
 void explore(board *b, uint8_t index, solution_set *s) {
     if (index == NUM_PIECES) {
         // All pieces have been successfully placed on the board
         // This solution hasn't been seen before, print the board and save
-        uint32_t hash = hashboard(b);
-        if (!solutionexists(s, hash)) {
-            s->solutions[s->count] = hashboard(b);
+        uint32_t hash = hashBoard(b);
+        if (!solutionExists(s, hash)) {
+            s->solutions[s->count] = hashBoard(b);
             s->count++;
             printf("Nice, found a solution! Total solutions: %d\n", s->count);
-            printboard(b);
+            printBoard(b);
         }
         return;
     }
+
+    // Set timeouts for nanosleep
+    struct timespec req = {};
+    struct timespec rem = {};
+    req.tv_sec = 0;
+    req.tv_nsec = 550000000;
 
     // Try all possible positions for each piece, in each orientation
     for (int k = 0; k < 4; k++) {
         for (int i = 0; i < SIDE_LENGTH; i++) {
             for (int j = 0; j < SIDE_LENGTH - i; j++) {
-                if(isSafe(PIECES[index], b, i, j)) {
+                if (isSafe(PIECES[index], b, i, j)) {
                     place(PIECES[index], index, b, i, j);
-                    
-                    //Uncomment to watch every move
-                    printboard(b);
-                    struct timespec *req = malloc(sizeof(struct timespec));
-                    struct timespec *rem = malloc(sizeof(struct timespec));
-                    req->tv_sec = 0;
-                    req->tv_nsec = 550000000;
-                    nanosleep(req, rem);
-                    explore(b, index + 1, s);
+
+                    if (PRINT_PROGRESS) {
+                        printBoard(b);
+                        nanosleep(&req, &rem);
+                    }
+
+                    if (isPossible(b) != 0) {
+                        explore(b, index + 1, s);
+                    }
                     unplace(PIECES[index], b, i, j);
                 }
             }
@@ -151,6 +162,18 @@ void place(uint8_t piece[4][4], uint8_t pindex, board *b, uint8_t row, uint8_t c
         for (int j = 0; j < PIECE_SIZE; j++) {
             if (piece[i][j] != 0) {
                 b->state[row+i][col+j] = PIECE_IDS[pindex];
+            }
+        }
+    }
+}
+
+// Unlaces the given piece on the given board, where row and represent the 
+// upper left corner of the piece
+void unplace(uint8_t piece[4][4], board *b, uint8_t row, uint8_t col) {
+    for (int i = 0; i < PIECE_SIZE; i++) {
+        for (int j = 0; j < PIECE_SIZE; j++) {
+            if (piece[i][j] != 0) {
+                b->state[row+i][col+j] = 0;
             }
         }
     }
@@ -173,21 +196,10 @@ int isSafe(uint8_t piece[4][4], board *b, uint8_t row, uint8_t col) {
     return 1;
 }
 
-// Unlaces the given piece on the given board, where row and represent the 
-// upper left corner of the piece
-void unplace(uint8_t piece[4][4], board *b, uint8_t row, uint8_t col) {
-    for (int i = 0; i < PIECE_SIZE; i++) {
-        for (int j = 0; j < PIECE_SIZE; j++) {
-            if (piece[i][j] != 0) {
-                b->state[row+i][col+j] = 0;
-            }
-        }
-    }
-}
 
-// Prints the current board state using the colors and sumbols
+// Prints the current board state using the colors and symbols
 // defined in COLORS and PIECE_IDS
-void printboard(board *b) {
+void printBoard(board *b) {
     for (int i = 0; i < SIDE_LENGTH; i++) {
         for (int j = 0; j < SIDE_LENGTH; j++) {
             if (b->state[i][j] == 1) {
@@ -198,7 +210,7 @@ void printboard(board *b) {
             }
             else {
                 char id = b->state[i][j];
-                uint8_t index = getindexfromid(id);
+                uint8_t index = getIndexFromId(id);
                 printf("%s", COLORS[index]);
                 printf("%c ", b->state[i][j]);
                 printf("\033[0m");
@@ -211,7 +223,7 @@ void printboard(board *b) {
 
 // Given a char corresponding to a piece id in PIECE_IDS,
 // returns the index assigned to that char.
-int getindexfromid(char c) {
+int getIndexFromId(char c) {
     for (int i = 0; i < NUM_PIECES; i++) {
         if (PIECE_IDS[i] == c) {
             return i;
@@ -220,10 +232,10 @@ int getindexfromid(char c) {
     return -1;
 }
 
-// (TODO: typeef solution hash)
+// (TODO: typdef solution hash)
 // Given a solution_set and a solution hash, returns 1 if the 
 // solution has been seen before, and 0 otherwise.
-int solutionexists(solution_set *s, uint32_t sol) {
+int solutionExists(solution_set *s, uint32_t sol) {
     for(int i = 0; i < s->count; i++) {
         if (sol == s->solutions[i]) {
             return 1;
@@ -233,7 +245,7 @@ int solutionexists(solution_set *s, uint32_t sol) {
 }
 
 // Given a board, returns a 32-bit hash encapsulating its state.
-uint32_t hashboard(board *b) {
+uint32_t hashBoard(board *b) {
     uint32_t hash = 0;
     for (int i = 0; i < SIDE_LENGTH; i++) {
         for (int j = 0; j < SIDE_LENGTH; j++) {
@@ -243,18 +255,47 @@ uint32_t hashboard(board *b) {
     return hash;
 }
 
-// An Inplace function to rotate a N x N matrix
-// by 90 degrees in anti-clockwise direction
-void rotatePiece(uint8_t mat[4][4], uint8_t N)
-{
-    // Consider all squares one by one
-    for (int x = 0; x < N / 2; x++)
-    {
-        // Consider elements in group of 4 in 
-        // current square
-        for (int y = x; y < N-x-1; y++)
-        {
-            // store current cell in temp variable
+// Returns 1 if a solution is possible given the current board state,
+// 0 otherwise
+int isPossible(board *b) {
+    int whitespace = 0;
+    for (int i = 0; i < SIDE_LENGTH; i++) {
+        for (int j = 0; j < SIDE_LENGTH; j++) {
+
+            // Look for empty cells that are touching 0 other empty cells
+            // It is impossible to find a solution from this state, return 0
+            if (b->state[i][j] == 0 && numEmptyNeighbors(b, i, j) == 0) {
+                return 0;
+            }
+        }
+    }
+    return 1;
+
+}
+
+// Returns the number of empty neighboring cells (N,W,E,S)
+int numEmptyNeighbors(board *b, int i, int j) {
+    int whitespace = 0;
+
+    if ((i - 1) >= 0 && b->state[i - 1][j] == 0) {
+        whitespace++;
+    }
+    if ((i + 1) < SIDE_LENGTH && b->state[i + 1][j] == 0) {
+        whitespace++;
+    }
+    if ((j - 1) >= 0 && b->state[i][j - 1] == 0) {
+        whitespace++;
+    }
+    if ((j + 1) < SIDE_LENGTH && b->state[i][j + 1] == 0) {
+        whitespace++;
+    }
+    return whitespace;
+}
+
+void rotatePiece(uint8_t mat[4][4], uint8_t N) {
+    for (int x = 0; x < N / 2; x++) {
+        for (int y = x; y < N-x-1; y++) {
+            
             uint8_t temp = mat[x][y];
  
             // move values from right to top
@@ -271,3 +312,4 @@ void rotatePiece(uint8_t mat[4][4], uint8_t N)
         }
     }
 }
+

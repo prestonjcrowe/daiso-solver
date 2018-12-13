@@ -16,15 +16,17 @@ typedef struct solution_set {
     uint32_t solutions[MAX_SOLUTIONS];
 } solution_set;
 
-void printboard(board *b);
+void printBoard(board *b);
 void explore(board *b, uint8_t index, solution_set *s);
 void place(uint8_t piece[4][4], uint8_t pindex, board *b,
     uint8_t row, uint8_t col);
 void unplace(uint8_t piece[4][4], board *b, uint8_t row, uint8_t col);
 void rotatePiece(uint8_t mat[4][4], uint8_t N);
 int isSafe(uint8_t piece[4][4], board *b, uint8_t row, uint8_t col);
-int getindexfromid(char c);
-int solutionexists(solution_set *s, uint32_t sol);
-uint32_t hashboard(board *b);
+int getIndexFromId(char c);
+int solutionExists(solution_set *s, uint32_t sol);
+uint32_t hashBoard(board *b);
+int isPossible(board *b);
+int numEmptyNeighbors(board *b, int x, int y);
 
 #endif
